@@ -30,6 +30,7 @@ from tqdm import tqdm
 
 from dbuild.docker_utils import list_modules
 from dbuild.verb import verbs, verb_arguments, VerbException
+from dbuild.dependency import get_dependencies
 
 WORKER_STATUS_POLL_WAIT = 0.5
 
@@ -381,7 +382,7 @@ def main():
         logging.root.setLevel(logging.DEBUG)
 
     arguments.verbs = filter(lambda v: v in verbs.keys(), arguments.args)
-    arguments.modules = filter(lambda m: m in modules, arguments.args)
+    arguments.modules = get_modules(modules, arguments.args)
     logger.info('Modules: %r', arguments.modules)
 
     reserved = arguments.verbs + arguments.modules
@@ -418,6 +419,32 @@ def main():
 
     signal.signal(signal.SIGINT, cancel_signal_handler)  # signal signal
     execute_plans(plans, arguments.workers)
+
+
+def get_modules(modules, args):
+    mods = filter(lambda m: m in modules, args)
+    raw_lineup = []
+
+    # work on the copy as we will modify the mods
+    # effectively below
+    for i, m in enumerate(mods[:]):
+        logger.info('Analyzing dependencies of %s module' % m)
+        dependencies = get_dependencies(m, mods)
+
+        # if dependencies contain one of the modules that are being
+        # built right now, add them to the mods_map, we will use the
+        # knowledge to lineup the final list
+        active_deps = set(dependencies).intersection(set(modules))
+        if active_deps:
+            raw_lineup.extend(active_deps.extend([m]))
+
+    actual_modules = []
+    for m in raw_lineup:
+        if m not in actual_modules:
+            # append to actual_modules only if module has not been seen
+            actual_modules.append(m)
+
+    return actual_modules
 
 
 if __name__ == '__main__':

@@ -9,3 +9,4 @@ attrs
 futures
 tqdm
 docker
+https://github.com/DBuildService/dockerfile-parse.git@master#egg=dockerfile-parse
